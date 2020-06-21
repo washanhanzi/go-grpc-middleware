@@ -101,7 +101,7 @@ func ExampleWithDecider() {
 	}
 }
 
-func ExampleWithPayloadLogging() {
+func ExampleServerPayloadLoggingDecider() {
 	// Logger is used, allowing pre-definition of certain fields by the user.
 	logger := log.NewNopLogger()
 	// Expect payload from  "/blah.foo.healthcheck/Check" call to be logged.
@@ -129,5 +129,5 @@ func TestExamplesBuildable(t *testing.T) {
 	Example_initializationWithDurationFieldOverride()
 	Example_initializationWithCodeGenRequestFieldExtractor()
 	ExampleWithDecider()
-	ExampleWithPayloadLogging()
+	ExampleServerPayloadLoggingDecider()
 }
