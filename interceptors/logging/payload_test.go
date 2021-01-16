@@ -12,11 +12,10 @@ import (
 	"google.golang.org/grpc"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware/v2"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/grpctesting"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/grpctesting/testpb"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/tags"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/testing/testpb"
 )
 
 type loggingPayloadSuite struct {
@@ -30,8 +29,8 @@ func TestPayloadSuite(t *testing.T) {
 	s := &loggingPayloadSuite{
 		baseLoggingSuite: &baseLoggingSuite{
 			logger: newMockLogger(),
-			InterceptorTestSuite: &grpctesting.InterceptorTestSuite{
-				TestService: &grpctesting.TestPingService{T: t},
+			InterceptorTestSuite: &testpb.InterceptorTestSuite{
+				TestService: &testpb.TestPingService{T: t},
 			},
 		},
 	}
@@ -51,7 +50,7 @@ func TestPayloadSuite(t *testing.T) {
 }
 
 func (s *loggingPayloadSuite) TestPing_LogsBothRequestAndResponse() {
-	_, err := s.Client.Ping(s.SimpleCtx(), goodPing)
+	_, err := s.Client.Ping(s.SimpleCtx(), testpb.GoodPing)
 	require.NoError(s.T(), err, "there must be not be an error on a successful call")
 
 	lines := s.logger.o.Lines()
@@ -85,9 +84,9 @@ func (s *loggingPayloadSuite) assertPayloadLogLinesForMessage(lines LogLines, me
 			AssertNextFieldNotEmpty(s.T(), "grpc.recv.duration").
 			AssertNextFieldNotEmpty(s.T(), "grpc.request.deadline")
 		if i-curr == 0 {
-			clientResponseFields = clientResponseFields.AssertNextField(s.T(), "grpc.response.content", `{"Value":"something"}`)
+			clientResponseFields = clientResponseFields.AssertNextField(s.T(), "grpc.response.content", `{"value":"something"}`)
 		} else {
-			clientResponseFields = clientResponseFields.AssertNextField(s.T(), "grpc.response.content", fmt.Sprintf(`{"Value":"something","counter":%v}`, i-curr))
+			clientResponseFields = clientResponseFields.AssertNextField(s.T(), "grpc.response.content", fmt.Sprintf(`{"value":"something","counter":%v}`, i-curr))
 		}
 		clientResponseFields.AssertNoMoreTags(s.T())
 	}
@@ -116,16 +115,16 @@ func (s *loggingPayloadSuite) assertPayloadLogLinesForMessage(lines LogLines, me
 			AssertNextFieldNotEmpty(s.T(), "grpc.send.duration").
 			AssertNextFieldNotEmpty(s.T(), "grpc.request.deadline")
 		if i-curr == 0 {
-			serverResponseFields = serverResponseFields.AssertNextField(s.T(), "grpc.response.content", `{"Value":"something"}`)
+			serverResponseFields = serverResponseFields.AssertNextField(s.T(), "grpc.response.content", `{"value":"something"}`)
 		} else {
-			serverResponseFields = serverResponseFields.AssertNextField(s.T(), "grpc.response.content", fmt.Sprintf(`{"Value":"something","counter":%v}`, i-curr))
+			serverResponseFields = serverResponseFields.AssertNextField(s.T(), "grpc.response.content", fmt.Sprintf(`{"value":"something","counter":%v}`, i-curr))
 		}
 		serverResponseFields.AssertNoMoreTags(s.T())
 	}
 }
 
 func (s *loggingPayloadSuite) TestPingError_LogsOnlyRequestsOnError() {
-	_, err := s.Client.PingError(s.SimpleCtx(), &testpb.PingRequest{Value: "something", ErrorCodeReturned: uint32(4)})
+	_, err := s.Client.PingError(s.SimpleCtx(), &testpb.PingErrorRequest{Value: "something", ErrorCodeReturned: uint32(4)})
 	require.Error(s.T(), err, "there must be an error on an unsuccessful call")
 
 	lines := s.logger.o.Lines()
@@ -148,7 +147,7 @@ func (s *loggingPayloadSuite) TestPingStream_LogsAllRequestsAndResponses() {
 
 	require.NoError(s.T(), err, "no error on stream creation")
 	for i := 0; i < messagesExpected; i++ {
-		require.NoError(s.T(), stream.Send(goodPing), "sending must succeed")
+		require.NoError(s.T(), stream.Send(testpb.GoodPingStream), "sending must succeed")
 
 		pong := &testpb.PingResponse{}
 		err := stream.RecvMsg(pong)
