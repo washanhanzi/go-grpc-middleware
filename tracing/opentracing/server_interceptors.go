@@ -6,8 +6,8 @@ package grpc_opentracing
 import (
 	"context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -71,7 +71,7 @@ func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, tr
 	serverSpan := tracer.StartSpan(
 		opName,
 		// this is magical, it attaches the new span to the parent parentSpanContext, and creates an unparented one if empty.
-		ext.RPCServerOption(parentSpanContext),
+		opentracing.ChildOf(parentSpanContext),
 		grpcTag,
 	)
 
