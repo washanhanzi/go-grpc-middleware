@@ -32,6 +32,10 @@ func UnaryServerInterceptor(opts ...Option) grpc.UnaryServerInterceptor {
 			opName = o.opNameFunc(info.FullMethod)
 		}
 		newCtx, serverSpan := newServerSpanFromInbound(ctx, o.tracer, o.traceHeaderName, opName)
+		//skip trace
+		if newCtx == nil {
+			return handler(ctx, req)
+		}
 		if o.unaryRequestHandlerFunc != nil {
 			o.unaryRequestHandlerFunc(serverSpan, req)
 		}
@@ -53,6 +57,10 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 			opName = o.opNameFunc(info.FullMethod)
 		}
 		newCtx, serverSpan := newServerSpanFromInbound(stream.Context(), o.tracer, o.traceHeaderName, opName)
+		//skip trace
+		if newCtx == nil {
+			return handler(srv, stream)
+		}
 		wrappedStream := grpc_middleware.WrapServerStream(stream)
 		wrappedStream.WrappedContext = newCtx
 		err := handler(srv, wrappedStream)
@@ -64,8 +72,9 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, traceHeaderName, opName string) (context.Context, opentracing.Span) {
 	md := metautils.ExtractIncoming(ctx)
 	parentSpanContext, err := tracer.Extract(opentracing.HTTPHeaders, metadataTextMap(md))
-	if err != nil && err != opentracing.ErrSpanContextNotFound {
+	if err != nil || err != opentracing.ErrSpanContextNotFound {
 		grpclog.Infof("grpc_opentracing: failed parsing trace information: %v", err)
+		return nil, nil
 	}
 
 	serverSpan := tracer.StartSpan(
