@@ -5,6 +5,7 @@ package grpc_opentracing
 
 import (
 	"context"
+	"errors"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -31,9 +32,9 @@ func UnaryServerInterceptor(opts ...Option) grpc.UnaryServerInterceptor {
 		if o.opNameFunc != nil {
 			opName = o.opNameFunc(info.FullMethod)
 		}
-		newCtx, serverSpan := newServerSpanFromInbound(ctx, o.tracer, o.traceHeaderName, opName)
+		newCtx, serverSpan, err := newServerSpanFromInbound(ctx, o.tracer, o.traceHeaderName, opName)
 		//skip trace
-		if newCtx == nil {
+		if err != nil {
 			return handler(ctx, req)
 		}
 		if o.unaryRequestHandlerFunc != nil {
@@ -56,25 +57,25 @@ func StreamServerInterceptor(opts ...Option) grpc.StreamServerInterceptor {
 		if o.opNameFunc != nil {
 			opName = o.opNameFunc(info.FullMethod)
 		}
-		newCtx, serverSpan := newServerSpanFromInbound(stream.Context(), o.tracer, o.traceHeaderName, opName)
+		newCtx, serverSpan, err := newServerSpanFromInbound(stream.Context(), o.tracer, o.traceHeaderName, opName)
 		//skip trace
-		if newCtx == nil {
+		if err != nil {
 			return handler(srv, stream)
 		}
 		wrappedStream := grpc_middleware.WrapServerStream(stream)
 		wrappedStream.WrappedContext = newCtx
-		err := handler(srv, wrappedStream)
+		err = handler(srv, wrappedStream)
 		finishServerSpan(newCtx, serverSpan, err)
 		return err
 	}
 }
 
-func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, traceHeaderName, opName string) (context.Context, opentracing.Span) {
+func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, traceHeaderName, opName string) (context.Context, opentracing.Span, error) {
 	md := metautils.ExtractIncoming(ctx)
 	parentSpanContext, err := tracer.Extract(opentracing.HTTPHeaders, metadataTextMap(md))
 	if err != nil || err != opentracing.ErrSpanContextNotFound {
 		grpclog.Infof("grpc_opentracing: failed parsing trace information: %v", err)
-		return nil, nil
+		return nil, nil, errors.New("failed parse span")
 	}
 
 	serverSpan := tracer.StartSpan(
@@ -85,7 +86,7 @@ func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, tr
 	)
 
 	injectOpentracingIdsToTags(traceHeaderName, serverSpan, grpc_ctxtags.Extract(ctx))
-	return opentracing.ContextWithSpan(ctx, serverSpan), serverSpan
+	return opentracing.ContextWithSpan(ctx, serverSpan), serverSpan, nil
 }
 
 func finishServerSpan(ctx context.Context, serverSpan opentracing.Span, err error) {
