@@ -80,7 +80,6 @@ func newServerSpanFromInbound(ctx context.Context, tracer opentracing.Tracer, tr
 
 	serverSpan := tracer.StartSpan(
 		opName,
-		// this is magical, it attaches the new span to the parent parentSpanContext, and creates an unparented one if empty.
 		opentracing.ChildOf(parentSpanContext),
 		grpcTag,
 	)
